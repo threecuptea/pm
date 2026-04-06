@@ -1,10 +1,30 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, vi } from "vitest";
 import { KanbanBoard } from "@/components/KanbanBoard";
+import { initialData } from "@/lib/kanban";
 
 const getFirstColumn = () => screen.getAllByTestId(/column-/i)[0];
 
 describe("KanbanBoard", () => {
+  beforeEach(() => {
+    vi.spyOn(global, "fetch").mockImplementation((input, init) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET") {
+        return Promise.resolve(
+          new Response(JSON.stringify(initialData), { status: 200 })
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(initialData), { status: 200 })
+      );
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders five columns", () => {
     render(<KanbanBoard />);
     expect(screen.getAllByTestId(/column-/i)).toHaveLength(5);
@@ -14,6 +34,11 @@ describe("KanbanBoard", () => {
     render(<KanbanBoard />);
     const column = getFirstColumn();
     const input = within(column).getByLabelText("Column title");
+
+    await waitFor(() => {
+      expect(input).toHaveValue("Backlog");
+    });
+
     await userEvent.clear(input);
     await userEvent.type(input, "New Name");
     expect(input).toHaveValue("New Name");

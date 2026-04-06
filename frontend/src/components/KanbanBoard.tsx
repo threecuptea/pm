@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -13,11 +13,17 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
+import { fetchBoard, saveBoard } from "@/lib/api";
 import { createId, initialData, moveCard, type BoardData } from "@/lib/kanban";
 
 export const KanbanBoard = () => {
   const [board, setBoard] = useState<BoardData>(() => initialData);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isLoadedFromBackend, setIsLoadedFromBackend] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingBoardRef = useRef<BoardData | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -26,6 +32,79 @@ export const KanbanBoard = () => {
   );
 
   const cardsById = useMemo(() => board.cards, [board.cards]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBoard = async () => {
+      try {
+        const payload = await fetchBoard();
+        if (!isMounted) {
+          return;
+        }
+        setBoard(payload);
+        setLoadError(null);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setLoadError(error instanceof Error ? error.message : "Failed to load board");
+      } finally {
+        if (isMounted) {
+          setIsLoadedFromBackend(true);
+        }
+      }
+    };
+
+    void loadBoard();
+
+    return () => {
+      isMounted = false;
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      if (pendingBoardRef.current) {
+        void saveBoard(pendingBoardRef.current).catch(() => {
+          // Ignore cleanup flush errors; regular runtime errors are surfaced via saveError state.
+        });
+      }
+    };
+  }, []);
+
+  const queueSave = (nextBoard: BoardData) => {
+    if (!isLoadedFromBackend) {
+      return;
+    }
+
+    pendingBoardRef.current = nextBoard;
+
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+    }
+
+    saveTimer.current = setTimeout(async () => {
+      try {
+        const pendingBoard = pendingBoardRef.current;
+        if (!pendingBoard) {
+          return;
+        }
+        await saveBoard(pendingBoard);
+        pendingBoardRef.current = null;
+        setSaveError(null);
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : "Failed to save board");
+      }
+    }, 180);
+  };
+
+  const updateBoard = (updater: (prev: BoardData) => BoardData) => {
+    setBoard((prev) => {
+      const next = updater(prev);
+      queueSave(next);
+      return next;
+    });
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveCardId(event.active.id as string);
@@ -39,14 +118,14 @@ export const KanbanBoard = () => {
       return;
     }
 
-    setBoard((prev) => ({
+    updateBoard((prev) => ({
       ...prev,
       columns: moveCard(prev.columns, active.id as string, over.id as string),
     }));
   };
 
   const handleRenameColumn = (columnId: string, title: string) => {
-    setBoard((prev) => ({
+    updateBoard((prev) => ({
       ...prev,
       columns: prev.columns.map((column) =>
         column.id === columnId ? { ...column, title } : column
@@ -56,7 +135,7 @@ export const KanbanBoard = () => {
 
   const handleAddCard = (columnId: string, title: string, details: string) => {
     const id = createId("card");
-    setBoard((prev) => ({
+    updateBoard((prev) => ({
       ...prev,
       cards: {
         ...prev.cards,
@@ -71,7 +150,7 @@ export const KanbanBoard = () => {
   };
 
   const handleDeleteCard = (columnId: string, cardId: string) => {
-    setBoard((prev) => {
+    updateBoard((prev) => {
       return {
         ...prev,
         cards: Object.fromEntries(
@@ -98,6 +177,16 @@ export const KanbanBoard = () => {
 
       <main className="relative mx-auto flex min-h-screen max-w-[1500px] flex-col gap-10 px-6 pb-16 pt-12">
         <header className="flex flex-col gap-6 rounded-[32px] border border-[var(--stroke)] bg-white/80 p-8 shadow-[var(--shadow)] backdrop-blur">
+          {loadError ? (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+              {loadError}. Showing local board state.
+            </p>
+          ) : null}
+          {saveError ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+              {saveError}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--gray-text)]">
