@@ -5,11 +5,28 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { initialData } from "@/lib/kanban";
 
 const getFirstColumn = () => screen.getAllByTestId(/column-/i)[0];
+let fetchMock: ReturnType<typeof vi.spyOn>;
 
 describe("KanbanBoard", () => {
   beforeEach(() => {
-    vi.spyOn(global, "fetch").mockImplementation((input, init) => {
+    fetchMock = vi.spyOn(global, "fetch").mockImplementation((input, init) => {
       const method = (init?.method ?? "GET").toUpperCase();
+      const url = typeof input === "string" ? input : input.toString();
+
+      if (method === "POST" && url.includes("/api/ai/chat")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              model: "openai/gpt-oss-120b",
+              assistant_response: "Try moving discovery items into review.",
+              board_updated: false,
+              board: initialData,
+            }),
+            { status: 200 }
+          )
+        );
+      }
+
       if (method === "GET") {
         return Promise.resolve(
           new Response(JSON.stringify(initialData), { status: 200 })
@@ -67,5 +84,56 @@ describe("KanbanBoard", () => {
     await userEvent.click(deleteButton);
 
     expect(within(column).queryByText("New card")).not.toBeInTheDocument();
+  });
+
+  it("submits an AI message and shows the response", async () => {
+    render(<KanbanBoard />);
+
+    await waitFor(() => {
+      expect(screen.getAllByLabelText("Column title").length).toBeGreaterThan(0);
+    });
+
+    await userEvent.type(screen.getByLabelText("Ask AI"), "What should I do next?");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Try moving discovery items into review.")
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("applies AI board updates immediately", async () => {
+    render(<KanbanBoard />);
+
+    await waitFor(() => {
+      expect(screen.getAllByLabelText("Column title")[0]).toHaveValue("Backlog");
+    });
+
+    const updatedBoard = {
+      ...initialData,
+      columns: initialData.columns.map((column, index) =>
+        index === 0 ? { ...column, title: "AI Backlog" } : column
+      ),
+    };
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          model: "openai/gpt-oss-120b",
+          assistant_response: "Updated your board.",
+          board_updated: true,
+          board: updatedBoard,
+        }),
+        { status: 200 }
+      )
+    );
+
+    await userEvent.type(screen.getByLabelText("Ask AI"), "Rename backlog");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByLabelText("Column title")[0]).toHaveValue("AI Backlog");
+    });
   });
 });

@@ -1,6 +1,19 @@
 import { type BoardData } from "@/lib/kanban";
 
 const BOARD_ENDPOINT = "/api/board?username=user";
+const AI_CHAT_ENDPOINT = "/api/ai/chat?username=user";
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ChatResult = {
+  model: string;
+  assistant_response: string;
+  board_updated: boolean;
+  board: BoardData;
+};
 
 const parseError = async (response: Response) => {
   try {
@@ -40,4 +53,21 @@ export const saveBoard = async (board: BoardData): Promise<BoardData> => {
   }
 
   return (await response.json()) as BoardData;
+};
+
+export const chatWithAi = async (
+  question: string,
+  history: ChatMessage[]
+): Promise<ChatResult> => {
+  const response = await fetch(AI_CHAT_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, history }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to chat with AI: ${await parseError(response)}`);
+  }
+
+  return (await response.json()) as ChatResult;
 };

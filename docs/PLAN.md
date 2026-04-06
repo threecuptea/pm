@@ -287,23 +287,34 @@ Success criteria:
 
 ## Part 10: Frontend AI sidebar and live board refresh
 
+Status:
+- Completed (verified)
+
 Objective:
 - Add AI chat sidebar that sends/receives messages and applies AI-driven board updates to UI automatically.
 
 Checklist:
-- [ ] Build sidebar chat UI integrated into existing board page.
-- [ ] Show conversation history and loading/error states.
-- [ ] Connect sidebar to backend AI endpoint.
-- [ ] Apply returned board updates to frontend state automatically.
-- [ ] Ensure layout is responsive and works on desktop/mobile.
+- [x] Build sidebar chat UI integrated into existing board page.
+- [x] Show conversation history and loading/error states.
+- [x] Connect sidebar to backend AI endpoint.
+- [x] Apply returned board updates to frontend state automatically.
+- [x] Ensure layout is responsive and works on desktop/mobile.
 
 Tests:
 - Automated:
-	- [ ] Component tests for chat interactions and rendering states.
-	- [ ] Integration/e2e tests for chat submit, response render, and board update reflection.
+	- [x] Component tests for chat interactions and rendering states.
+	- [x] Integration/e2e tests for chat submit, response render, and board update reflection.
 - Manual:
 	- [ ] Validate no-update AI responses keep board unchanged.
 	- [ ] Validate update responses refresh board without manual reload.
+
+Verification notes:
+- Added AI sidebar in frontend board view with prompt input, conversation history, loading state, and error state.
+- Added frontend API helper for `POST /api/ai/chat` and unit tests.
+- Added component tests validating AI response rendering and AI-driven board refresh.
+- Added Playwright flow validating AI chat submit and board update reflection.
+- Frontend unit tests passed (`16 passed`).
+- Kanban Playwright spec passed (`5 passed`) including AI chat scenario.
 
 Success criteria:
 - Sidebar chat is usable and stable.

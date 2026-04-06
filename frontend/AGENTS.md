@@ -26,6 +26,10 @@ The `frontend/` app is a Next.js Kanban UI demo used as the initial user-facing 
 - Cards can be moved by drag and drop within and across columns.
 - Board state is loaded from backend (`GET /api/board`) after login.
 - Board updates are persisted to backend (`PUT /api/board`) and survive reload.
+- AI sidebar is available next to the board after login.
+- Sidebar sends chat prompts to backend (`POST /api/ai/chat`).
+- AI message responses are shown inline in chat history.
+- When AI returns `board_updated=true`, board UI refreshes immediately with returned board state.
 
 ## Code map
 
@@ -48,12 +52,12 @@ The `frontend/` app is a Next.js Kanban UI demo used as the initial user-facing 
 - `src/lib/kanban.ts`
   - Board types, seed data, `moveCard` logic, and `createId` helper.
 - `src/lib/api.ts`
-  - Frontend API helpers for board fetch/save operations.
+  - Frontend API helpers for board fetch/save operations and AI chat.
 
 ## Test map
 
 - `src/components/KanbanBoard.test.tsx`
-  - Verifies render count, column rename, and add/remove card behavior.
+  - Verifies render count, column rename, add/remove card behavior, AI chat rendering, and AI board update application.
 - `src/components/AuthGate.test.tsx`
   - Verifies login visibility, invalid credentials error, and login/logout flow.
 - `src/lib/kanban.test.ts`
@@ -61,7 +65,7 @@ The `frontend/` app is a Next.js Kanban UI demo used as the initial user-facing 
 - `src/lib/api.test.ts`
   - Unit tests for board API helper success/error behavior.
 - `tests/kanban.spec.ts`
-  - Browser flows for login, load, add card, drag card between columns, and logout.
+  - Browser flows for login, load, add card, drag card between columns, logout, and AI chat board update reflection.
 - `tests/persistence.spec.ts`
   - Browser flow verifying board persistence across page reload.
 - `test/setup.ts`
