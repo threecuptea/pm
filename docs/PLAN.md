@@ -250,25 +250,35 @@ Success criteria:
 
 ## Part 9: Structured output for AI + Kanban updates
 
+Status:
+- Completed (verified)
+
 Objective:
 - Extend AI call to send board JSON + user message + history and receive structured response with optional board update.
 - Backfill docs immediately after implementation.
 
 Checklist:
-- [ ] Implement structured response schema in backend code.
-- [ ] Include board JSON and conversation context in AI request.
-- [ ] Parse and validate structured AI response.
-- [ ] Apply optional board updates safely and persist when present.
-- [ ] Backfill documentation in `docs/` right after code lands.
+- [x] Implement structured response schema in backend code.
+- [x] Include board JSON and conversation context in AI request.
+- [x] Parse and validate structured AI response.
+- [x] Apply optional board updates safely and persist when present.
+- [x] Backfill documentation in `docs/` right after code lands.
 
 Tests:
 - Automated:
-	- [ ] Unit tests for schema validation and parse failures.
-	- [ ] Tests for both response types: message-only and message+board-update.
-	- [ ] Persistence tests for AI-driven updates.
+	- [x] Unit tests for schema validation and parse failures.
+	- [x] Tests for both response types: message-only and message+board-update.
+	- [x] Persistence tests for AI-driven updates.
 - Manual:
 	- [ ] Ask a question that should not modify board and verify no mutation.
 	- [ ] Ask a command-like request and verify expected board mutation.
+
+Verification notes:
+- Added `POST /api/ai/chat` with structured JSON-schema output handling.
+- Backend now always sends current board JSON, conversation history, and user question to AI.
+- Optional AI board updates are validated and persisted through repository layer.
+- Added and passed structured AI tests for message-only, update-and-persist, and invalid payload handling.
+- Backend suite passed (`13 passed`).
 
 Success criteria:
 - AI responses are structured and validated.

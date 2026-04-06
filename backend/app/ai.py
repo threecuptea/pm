@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 import os
 from typing import Any
 
@@ -26,6 +27,41 @@ class OpenRouterClient:
             "model": self.config.model,
             "messages": [{"role": "user", "content": prompt}],
         }
+        data = self._post_chat(payload)
+        return self._extract_content_text(data)
+
+    def ask_structured(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        schema_name: str,
+        schema: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload = {
+            "model": self.config.model,
+            "messages": messages,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "strict": True,
+                    "schema": schema,
+                },
+            },
+        }
+        data = self._post_chat(payload)
+        content = self._extract_content_text(data)
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise OpenRouterError("OpenRouter structured response was not valid JSON") from exc
+
+        if not isinstance(parsed, dict):
+            raise OpenRouterError("OpenRouter structured response must be a JSON object")
+
+        return parsed
+
+    def _post_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
         response = self.http_client.post(
             f"{self.config.base_url}/chat/completions",
             headers={
@@ -37,6 +73,11 @@ class OpenRouterClient:
         response.raise_for_status()
 
         data = response.json()
+        if not isinstance(data, dict):
+            raise OpenRouterError("OpenRouter response must be a JSON object")
+        return data
+
+    def _extract_content_text(self, data: dict[str, Any]) -> str:
         choices = data.get("choices")
         if not choices:
             raise OpenRouterError("OpenRouter response missing choices")
