@@ -219,21 +219,30 @@ Success criteria:
 
 ## Part 8: AI connectivity via OpenRouter
 
+Status:
+- Completed (verified)
+
 Objective:
 - Add backend capability to call OpenRouter using `openai/gpt-oss-120b`.
 
 Checklist:
-- [ ] Add OpenRouter client configuration using `OPENROUTER_API_KEY`.
-- [ ] Implement simple AI test route/service call.
-- [ ] Add secure config handling and clear missing-key errors.
-- [ ] Add a connectivity verification test path using prompt `2+2`.
+- [x] Add OpenRouter client configuration using `OPENROUTER_API_KEY`.
+- [x] Implement simple AI test route/service call.
+- [x] Add secure config handling and clear missing-key errors.
+- [x] Add a connectivity verification test path using prompt `2+2`.
 
 Tests:
 - Automated:
-	- [ ] Unit test with mocked provider response.
-	- [ ] Integration test path with mocked HTTP client.
+	- [x] Unit test with mocked provider response.
+	- [x] Integration test path with mocked HTTP client.
 - Manual:
-	- [ ] Live connectivity check (when key available) returns a plausible answer to `2+2`.
+	- [x] Live connectivity check (when key available) returns a plausible answer to `2+2`.
+
+Verification notes:
+- Added `/api/ai/test` endpoint backed by OpenRouter client.
+- Missing API key now returns clear `503` message.
+- Backend suite passed (`9 passed`) including new AI tests.
+- Dockerized live connectivity check returned `4` for prompt `2+2`.
 
 Success criteria:
 - Backend can successfully call OpenRouter.

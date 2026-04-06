@@ -4,7 +4,7 @@
 
 The `backend/` directory contains the FastAPI service that powers API routes and, in later parts, will serve the frontend build and persist Kanban state.
 
-## Current implementation (Part 6)
+## Current implementation (Part 8)
 
 - FastAPI app entry point: `backend/app/main.py`
 - Routes:
@@ -12,6 +12,7 @@ The `backend/` directory contains the FastAPI service that powers API routes and
 	- `GET /api/sample` -> `{ "message": "Backend API is reachable." }`
 	- `GET /api/board?username=user` -> current board JSON for user
 	- `PUT /api/board?username=user` -> validates and persists board JSON
+	- `GET /api/ai/test?prompt=2+2` -> OpenRouter completion response
 - Static frontend serving:
 	- Exported frontend assets are served at `/`.
 	- Docker build generates frontend static output and copies it to `/app/frontend_out`.
@@ -22,6 +23,10 @@ The `backend/` directory contains the FastAPI service that powers API routes and
 	- SQLite database auto-creates on first run at `backend/data/app.db`.
 	- Default `user` and `main` board are bootstrapped automatically.
 	- Repository layer implemented in `backend/app/repository.py`.
+- AI behavior:
+	- OpenRouter client implemented in `backend/app/ai.py`.
+	- Uses model `openai/gpt-oss-120b`.
+	- Returns clear errors for missing key and upstream failures.
 
 ## Dependency management
 

@@ -4,7 +4,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi import HTTPException, Query
 from fastapi.staticfiles import StaticFiles
+import httpx
 
+from .ai import OpenRouterClient, OpenRouterError, load_openrouter_config
 from .board_schema import BoardPayload
 from .repository import KanbanRepository
 
@@ -47,6 +49,26 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
             return repository.save_board(username, payload)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/ai/test")
+    def ai_test(prompt: str = Query(default="2+2", min_length=1)) -> dict[str, str]:
+        try:
+            config = load_openrouter_config()
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        try:
+            with httpx.Client(timeout=30.0) as http_client:
+                client = OpenRouterClient(config=config, http_client=http_client)
+                answer = client.ask(prompt)
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(status_code=502, detail=f"OpenRouter request failed: {exc.response.status_code}") from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail=f"OpenRouter connection failed: {exc}") from exc
+        except OpenRouterError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        return {"model": config.model, "prompt": prompt, "response": answer}
 
     # Part 3: serve static frontend build at '/'.
     static_dir = Path(__file__).resolve().parents[2] / "frontend_out"
