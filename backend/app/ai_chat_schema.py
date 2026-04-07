@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .board_schema import BoardPayload
+from backend.app.board_schema import BoardPayload
 
 
 class ChatHistoryMessage(BaseModel):

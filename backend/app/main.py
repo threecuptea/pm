@@ -8,10 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import httpx
 
-from .ai import OpenRouterClient, OpenRouterError, load_openrouter_config
-from .ai_chat_schema import AiChatRequest, AiChatResponse, AiStructuredOutput
-from .board_schema import BoardPayload
-from .repository import KanbanRepository
+from backend.app.ai import OpenRouterClient, OpenRouterError, load_openrouter_config
+from backend.app.ai_chat_schema import AiChatRequest, AiChatResponse, AiStructuredOutput
+from backend.app.board_schema import BoardPayload
+from backend.app.repository import KanbanRepository
 
 
 def _default_db_path() -> Path:
@@ -93,7 +93,8 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
         schema = AiStructuredOutput.model_json_schema()
-        board_json = json.dumps(board.model_dump(mode="json"), ensure_ascii=True)
+        # Try model_dump_json(): Returns a JSON-encoded string representation of the model directly
+        board_json = board.model_dump_json(ensure_ascii=True)
         messages: list[dict[str, str]] = [
             {
                 "role": "system",
@@ -112,6 +113,7 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
         messages.append({"role": "user", "content": payload.question})
 
         try:
+            # we can use httpx.AsyncClient here to make the request asynchronously
             with httpx.Client(timeout=30.0) as http_client:
                 client = OpenRouterClient(config=config, http_client=http_client)
                 raw_response = client.ask_structured(

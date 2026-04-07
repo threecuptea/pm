@@ -1,4 +1,4 @@
-from .board_schema import BoardPayload
+from backend.app.board_schema import BoardPayload
 
 
 DEFAULT_BOARD = BoardPayload.model_validate(
