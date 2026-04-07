@@ -62,6 +62,14 @@ npx vitest run src/path/to/test.test.ts                    # Unit test
 npx playwright test src/e2e/path/to/test.spec.ts           # E2E test
 ```
 
+**Running E2E tests against Docker container:**
+```bash
+# Start the Docker container first, then:
+cd frontend
+PLAYWRIGHT_BASE_URL=http://localhost:8000 PLAYWRIGHT_NO_WEBSERVER=1 npx playwright test
+```
+This runs all E2E tests (including the persistence spec) against the production Docker build.
+
 ### Backend Development (without Docker)
 
 Navigate to `backend/` directory:

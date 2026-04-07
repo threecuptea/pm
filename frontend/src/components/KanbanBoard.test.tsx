@@ -42,13 +42,18 @@ describe("KanbanBoard", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders five columns", () => {
+  it("renders five columns", async () => {
     render(<KanbanBoard />);
-    expect(screen.getAllByTestId(/column-/i)).toHaveLength(5);
+    await waitFor(() => {
+      expect(screen.getAllByTestId(/column-/i)).toHaveLength(5);
+    });
   });
 
   it("renames a column", async () => {
     render(<KanbanBoard />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId(/column-/i).length).toBeGreaterThan(0);
+    });
     const column = getFirstColumn();
     const input = within(column).getByLabelText("Column title");
 
@@ -63,6 +68,9 @@ describe("KanbanBoard", () => {
 
   it("adds and removes a card", async () => {
     render(<KanbanBoard />);
+    await waitFor(() => {
+      expect(screen.getAllByTestId(/column-/i).length).toBeGreaterThan(0);
+    });
     const column = getFirstColumn();
     const addButton = within(column).getByRole("button", {
       name: /add a card/i,

@@ -4,6 +4,7 @@ import json
 
 from fastapi import FastAPI
 from fastapi import HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import httpx
 
@@ -23,6 +24,13 @@ def _default_schema_path() -> Path:
 
 def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> FastAPI:
     app = FastAPI(title="Project Management MVP API", version="0.1.0")
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     repository = KanbanRepository(
         db_path=db_path or _default_db_path(),

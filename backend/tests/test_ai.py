@@ -1,11 +1,8 @@
-import sys
-from pathlib import Path
 import json
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from backend.app.ai import OpenRouterClient, OpenRouterConfig
 from backend.app.main import create_app
