@@ -93,7 +93,7 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
         schema = AiStructuredOutput.model_json_schema()
-        # Try model_dump_json(): Returns a JSON-encoded string representation of the model directly
+        # Try model_dump_json(ensure_ascii=True) but it does not work why
         board_json = json.dumps(board.model_dump(mode="json"), ensure_ascii=True)
         messages: list[dict[str, str]] = [
             {
