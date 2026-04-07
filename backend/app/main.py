@@ -94,7 +94,7 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
 
         schema = AiStructuredOutput.model_json_schema()
         # Try model_dump_json(): Returns a JSON-encoded string representation of the model directly
-        board_json = board.model_dump_json(ensure_ascii=True)
+        board_json = json.dumps(board.model_dump(mode="json"), ensure_ascii=True)
         messages: list[dict[str, str]] = [
             {
                 "role": "system",
