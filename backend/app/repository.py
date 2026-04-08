@@ -2,8 +2,8 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from .board_schema import BoardPayload
-from .default_board import DEFAULT_BOARD
+from backend.app.board_schema import BoardPayload
+from backend.app.default_board import DEFAULT_BOARD
 
 
 class KanbanRepository:
