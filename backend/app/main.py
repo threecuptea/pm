@@ -61,16 +61,16 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/ai/test")
-    def ai_test(prompt: str = Query(default="2+2", min_length=1)) -> dict[str, str]:
+    async def ai_test(prompt: str = Query(default="2+2", min_length=1)) -> dict[str, str]:
         try:
             config = load_openrouter_config()
         except ValueError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
         try:
-            with httpx.Client(timeout=30.0) as http_client:
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
                 client = OpenRouterClient(config=config, http_client=http_client)
-                answer = client.ask(prompt)
+                answer = await client.ask_async(prompt)
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=502, detail=f"OpenRouter request failed: {exc.response.status_code}") from exc
         except httpx.HTTPError as exc:
@@ -81,7 +81,7 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
         return {"model": config.model, "prompt": prompt, "response": answer}
 
     @app.post("/api/ai/chat", response_model=AiChatResponse)
-    def ai_chat(
+    async def ai_chat(
         payload: AiChatRequest,
         username: str = Query(default="user", min_length=1),
     ) -> AiChatResponse:
@@ -100,9 +100,16 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
                 "role": "system",
                 "content": (
                     "You are a project management assistant. "
-                    "Reply using the provided JSON schema only. "
-                    "Use board_update only when the user clearly requests board changes. "
-                    "Current board JSON: "
+                    "Your response MUST be a JSON object with exactly these fields:\n"
+                    "- \"assistant_response\": a human-readable string explaining what you did\n"
+                    "- \"board_update\": null if no board changes, or the COMPLETE updated board object\n\n"
+                    "CRITICAL RULES for board_update:\n"
+                    "- It must be a COMPLETE copy of the current board with your changes applied.\n"
+                    "- Every column must have all fields: id, title, cardIds.\n"
+                    "- Every card id in any column's cardIds MUST have a matching entry in the cards map.\n"
+                    "- The cards map must include ALL cards with all fields: id, title, details.\n"
+                    "- Do NOT omit fields. Do NOT return a partial board.\n\n"
+                    "Current board JSON:\n"
                     f"{board_json}"
                 ),
             }
@@ -114,9 +121,9 @@ def create_app(db_path: Path | None = None, schema_path: Path | None = None) -> 
 
         try:
             # we can use httpx.AsyncClient here to make the request asynchronously
-            with httpx.Client(timeout=30.0) as http_client:
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
                 client = OpenRouterClient(config=config, http_client=http_client)
-                raw_response = client.ask_structured(
+                raw_response = await client.ask_structured_async(
                     messages=messages,
                     schema_name="kanban_ai_response",
                     schema=schema,

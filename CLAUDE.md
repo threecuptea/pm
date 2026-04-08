@@ -4,166 +4,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Project Management MVP web application with a React/Next.js frontend and Python FastAPI backend. Key features include user sign-in, a Kanban board with drag-and-drop cards, and an AI chat sidebar that can create/edit/move cards.
+Project Management MVP: React/Next.js frontend + Python FastAPI backend. Features: user sign-in, Kanban board with drag-and-drop cards, AI chat sidebar that can create/edit/move cards.
 
 **Tech Stack:**
-- Frontend: Next.js 16 + React 19 + Tailwind CSS
+- Frontend: Next.js 16 + React 19 + Tailwind CSS 4
 - Backend: FastAPI (Python 3.12+) with SQLite
-- AI: OpenRouter API (GPT-OSS-120B)
-- Deployment: Docker and docker-compose
+- AI: OpenRouter API (`openai/gpt-oss-120b`)
+- Deployment: Single Docker container (multi-stage build)
+- Package managers: npm (frontend), uv (backend)
 
 ## Common Commands
 
-### Running Locally
-
-**Start the application:**
+### Docker (full stack)
 ```bash
-./scripts/start-mac.sh       # Mac
-./scripts/start-windows.ps1  # Windows
-./scripts/start-linux.sh     # Linux
-```
-This builds and starts the Docker container. App runs at http://localhost:8000
-
-**Stop the application:**
-```bash
-./scripts/stop-mac.sh        # Mac
-./scripts/stop-windows.ps1   # Windows
-./scripts/stop-linux.sh      # Linux
-```
-
-**Manual Docker commands:**
-```bash
-docker compose up --build -d   # Start in background
+docker compose up --build -d   # Start (app at http://localhost:8000)
 docker compose down             # Stop
 docker compose logs -f          # View logs
 ```
+Platform scripts in `scripts/`: `start-mac.sh`, `stop-mac.sh`, etc.
 
-### Frontend Development (without Docker)
-
-Navigate to `frontend/` directory:
-
+### Frontend (`cd frontend/`)
 ```bash
-npm install           # Install dependencies
-npm run dev           # Start dev server (http://localhost:3000)
-npm run build         # Build for production
-npm run start         # Run production build locally
-npm run lint          # Run ESLint
+npm install && npm run dev      # Dev server at http://localhost:3000
+npm run build                   # Static export to out/
+npm run lint                    # ESLint
 
-# Testing
-npm run test:unit           # Run unit tests (Vitest)
-npm run test:unit:watch     # Run unit tests in watch mode
-npm run test:e2e            # Run E2E tests (Playwright)
-npm run test:all            # Run all tests
-```
+# Tests
+npm run test:unit               # Vitest
+npm run test:e2e                # Playwright (starts dev server automatically)
+npx vitest run src/path/to/test.test.ts              # Single unit test
+npx playwright test tests/kanban.spec.ts             # Single E2E test
 
-**Running a single test file:**
-```bash
-npx vitest run src/path/to/test.test.ts                    # Unit test
-npx playwright test src/e2e/path/to/test.spec.ts           # E2E test
-```
-
-**Running E2E tests against Docker container:**
-```bash
-# Start the Docker container first, then:
-cd frontend
+# E2E against Docker container
 PLAYWRIGHT_BASE_URL=http://localhost:8000 PLAYWRIGHT_NO_WEBSERVER=1 npx playwright test
 ```
-This runs all E2E tests (including the persistence spec) against the production Docker build.
 
-### Backend Development (without Docker)
-
-Navigate to `backend/` directory:
-
+### Backend (`cd backend/`)
 ```bash
-# Setup (if needed)
-python -m venv .venv
-source .venv/bin/activate  # or .\.venv\Scripts\activate on Windows
+uv sync                                              # Install deps
+uvicorn app.main:app --reload --port 8000            # Dev server
 
-# With uv (recommended)
-uv sync                     # Install dependencies including dev
-uvicorn app.main:app --reload --port 8000  # Run dev server
-
-# Testing
-pytest                      # Run all tests
-pytest tests/test_main.py   # Run single test file
-pytest tests/test_main.py::test_function_name  # Run single test
-pytest -v                   # Verbose output
-pytest -k "keyword"         # Run tests matching keyword
-```
-
-**Backend API test:**
-```bash
-curl http://localhost:8000/api/health
-curl http://localhost:8000/api/sample
+# Tests
+pytest                                               # All tests
+pytest tests/test_main.py                            # Single file
+pytest tests/test_main.py::test_function_name        # Single test
+pytest -k "keyword"                                  # By keyword
 ```
 
 ## Architecture
 
-### Frontend (`frontend/`)
+### How the pieces connect
 
-**Key directories:**
-- `src/app/` - Next.js app directory with pages and layouts
-- `src/components/` - React components (Board, Card, ChatSidebar, etc.)
-- `src/lib/` - Utility functions and API clients
-- `src/test/` - Test setup and utilities
+**Docker build:** Dockerfile stage 1 builds the Next.js frontend as a static export (`output: "export"` in next.config.ts). Stage 2 runs the FastAPI backend, which serves those static files at `/` via StaticFiles mount. Everything runs in a single container on port 8000.
 
-**Key patterns:**
-- Uses `@dnd-kit` for drag-and-drop functionality
-- Tailwind CSS for styling with custom color variables (yellow accent `#ecad0a`, blue `#209dd7`, purple `#753991`)
-- Fetch API for HTTP requests to backend
-- Vitest for unit tests, Playwright for E2E tests
+**Frontend-backend communication:** All API calls go to `/api/*` endpoints. The frontend uses the Fetch API (see `src/lib/api.ts`). CORS middleware allows `localhost:3000` and `127.0.0.1:3000` for local frontend-only development.
 
-### Backend (`backend/`)
+**Board save flow:** KanbanBoard debounces saves with a 180ms timer. On unmount, it flushes any pending save via `navigator.sendBeacon` to avoid data loss (see `KanbanBoard.tsx`).
 
-**Key directories:**
-- `app/main.py` - FastAPI application and route definitions
-- `app/repository.py` - KanbanRepository: database operations, board state management
-- `app/ai.py` - OpenRouterClient for AI chat integration
-- `app/*_schema.py` - Pydantic schemas for request/response validation
-- `db/schema.sql` - SQLite schema
-- `data/` - SQLite database file (created on first run)
-- `tests/` - Test files
+**AI chat flow:** Frontend sends question + chat history to `POST /api/ai/chat`. Backend injects current board state as system context, calls OpenRouter with JSON schema constraints, validates the structured response, persists any board updates, and returns the updated board to the frontend. The `ai_test` and `ai_chat` routes are async, using `httpx.AsyncClient` via `async with` for non-blocking HTTP calls to OpenRouter.
 
-**API endpoints:**
-- `GET /api/health` - Health check, returns `{"status": "ok"}`
-- `GET /api/sample` - Test endpoint, returns `{"message": "Backend API is reachable."}`
-- `GET /api/board?username=user` - Get board state for user
-- `PUT /api/board?username=user` - Save/update board state (validates board structure)
-- `POST /api/ai/chat?username=user` - AI chat: sends current board + chat history, receives structured response with optional board updates
-- `GET /api/ai/test?prompt=...` - Test AI connectivity, returns `{"model": "...", "prompt": "...", "response": "..."}`
+### Board state model
 
-**AI Chat Flow:**
-1. Frontend sends question + chat history to `/api/ai/chat`
-2. Backend includes current board context in system message
-3. OpenRouter returns structured JSON with `assistant_response` and optional `board_update`
-4. Backend validates and persists any board updates
-5. Returns updated board state to frontend
-
-**AI Response Schema:**
-```json
-{
-  "model": "gpt-oss-120b",
-  "assistant_response": "Human-readable reply",
-  "board_updated": true | false,
-  "board": <full board object>
-}
-```
-
-**Key patterns:**
-- Repository pattern for data access (KanbanRepository)
-- OpenRouter API client for AI (GPT-OSS-120B model via openai/gpt-oss-120b)
-- Pydantic models for request/response validation (BoardPayload, AiChatRequest, AiChatResponse)
-- SQLite database with auto-initialization on startup
-- JSON schema validation for structured AI outputs
-
-### Database
-
-**Schema:** `backend/db/schema.sql` - SQLite with auto-creation on startup
-- **users**: Username, created_at, updated_at
-- **boards**: Stores complete board state as JSON (one per user, keyed by `board_key="main"`)
-- **Default bootstrap**: Automatically creates user "user" and initial Kanban board on first run
-
-**Board JSON structure:**
+Board is a complete snapshot stored as JSON in SQLite (not a change history):
 ```json
 {
   "columns": [
@@ -174,49 +76,51 @@ curl http://localhost:8000/api/sample
   }
 }
 ```
+**Validation constraint:** Every `cardIds` entry must exist in the `cards` map, and there must be no orphan cards. Both frontend and backend enforce this.
 
-**Database location:** `backend/data/app.db` (or `PM_DB_PATH` env var)
-- Reset by deleting the file; it will be recreated on next run
-- Validation: each `cardIds` entry must exist in cards object
+**Duplicate default board data:** Initial board content is defined in both `frontend/src/lib/kanban.ts` (initialData) and `backend/app/default_board.py`. These must be kept in sync.
 
-## Important Implementation Details
+### Backend structure
 
-**Board State Management:**
-- Board is a complete snapshot (not change history) stored as JSON in SQLite
-- Frontend and backend both validate board structure
-- Cards must exist in the cards object before being referenced in column `cardIds`
-- All board changes go through `PUT /api/board` or AI chat updates
+- `app/main.py` - FastAPI app, route definitions, static file serving
+- `app/repository.py` - KanbanRepository: SQLite operations using `with conn` context manager
+- `app/ai.py` - OpenRouterClient with sync (`ask`, `ask_structured`) and async (`ask_async`, `ask_structured_async`) methods. Async methods use `httpx.AsyncClient` passed in from the caller.
+- `app/board_schema.py`, `app/ai_chat_schema.py` - Pydantic request/response models
+- `db/schema.sql` - SQLite schema (users + boards tables, auto-created on startup)
+- `data/app.db` - SQLite database (or `PM_DB_PATH` env var). Delete to reset.
 
-**Authentication (MVP):**
-- Hardcoded username "user" / password "password"
-- Query parameter `username` determines which user's board to load
-- Future: upgrade to real auth but database schema already supports multiple users
+### Frontend structure
 
-**Frontend Build:**
-- Built with `next build` which creates static output in `out/`
-- Docker copies the static files to be served by FastAPI at `/`
-- For local frontend-only development, use `npm run dev` (no Docker needed)
+- `src/lib/api.ts` - API client (fetchBoard, saveBoard, chatWithAi)
+- `src/lib/kanban.ts` - Board types, moveCard logic, ID generation
+- `src/components/KanbanBoard.tsx` - Main board component with dnd-kit, debounced save
+- `src/components/AiSidebar.tsx` - AI chat interface
+- `src/components/AuthGate.tsx` - Login gate (hardcoded "user"/"password", session storage)
 
-**Error Handling:**
-- API returns `422` for invalid board payloads
-- `502` for OpenRouter failures
-- `503` for missing `OPENROUTER_API_KEY`
-- All validation happens at the service layer before persistence
+### Testing details
+
+- **Backend tests** use `tmp_path` fixture for DB isolation (see `conftest.py`). `pythonpath = [".."]` in pyproject.toml enables absolute imports like `backend.app.main` in tests. AI route tests mock `httpx.AsyncClient` with fake async context managers (`__aenter__`/`__aexit__`) and async `post()` methods.
+- **Frontend unit tests** use jsdom via Vitest. Setup in `src/test/setup.ts` mocks `navigator.sendBeacon`.
+- **Playwright E2E** runs against dev server by default. The `persistence.spec.ts` test only runs against Docker (`PLAYWRIGHT_NO_WEBSERVER=1`).
+
+## API Endpoints
+
+- `GET /api/health` - Health check
+- `GET /api/board?username=user` - Get board state
+- `PUT /api/board?username=user` - Save board (422 on invalid payload)
+- `POST /api/ai/chat?username=user` - AI chat (502 on OpenRouter failure, 503 if no API key)
+- `GET /api/ai/test?prompt=...` - Test AI connectivity
 
 ## Important Notes
 
-1. **Simplicity is paramount**: The project intentionally avoids over-engineering. No unnecessary defensive programming or speculative features.
-2. **Color scheme**: Always use the defined colors (yellow `#ecad0a`, blue `#209dd7`, purple `#753991`, navy `#032147`, gray `#888888`)
-3. **Database**: SQLite is local and auto-created. Reset by deleting `backend/data/app.db`
-4. **Environment setup**: 
-   - Local development requires `.env` file with `OPENROUTER_API_KEY` (required for AI features)
-   - The app will return 503 if `OPENROUTER_API_KEY` is missing
-   - Default username is "user" with password "password" (MVP authentication)
-5. **Frontend-only development**: For frontend work, run `npm run dev` in the `frontend/` directory and mock API responses as needed
-6. **Docker build**: The Dockerfile builds the frontend first (with `next build`), then runs the backend with the static files served at `/`
-7. **Testing strategy**: Unit tests for logic, E2E tests for user workflows. Backend tests use pytest with test fixtures.
+1. **Simplicity is paramount**: No over-engineering, no unnecessary defensive programming, no speculative features. Always identify root cause before fixing issues.
+2. **No emojis** in code or documentation.
+3. **Color scheme**: yellow `#ecad0a`, blue `#209dd7`, purple `#753991`, navy `#032147`, gray `#888888`. Fonts: Space Grotesk (display), Manrope (body).
+4. **Environment**: `.env` file at project root with `OPENROUTER_API_KEY` (required for AI features).
+5. **Authentication (MVP)**: Hardcoded username "user" / password "password". DB schema supports multiple users for future.
+6. **Static export**: Frontend uses `output: "export"` — no SSR or server components. All pages are statically generated.
 
 ## Documentation References
 
-- Project requirements and technical decisions: `AGENTS.md`
+- Project requirements and coding standards: `AGENTS.md`
 - Planning and execution docs: `docs/PLAN.md`

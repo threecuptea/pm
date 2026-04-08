@@ -82,16 +82,16 @@ def test_ai_test_route_handles_upstream_http_error(
     import httpx
 
     class _RaisingClient:
-        def __enter__(self) -> "_RaisingClient":
+        async def __aenter__(self) -> "_RaisingClient":
             return self
 
-        def __exit__(self, exc_type, exc, tb) -> bool:
+        async def __aexit__(self, exc_type, exc, tb) -> bool:
             return False
 
-        def post(self, *_args, **_kwargs):
+        async def post(self, *_args, **_kwargs):
             raise httpx.ConnectError("boom")
 
-    monkeypatch.setattr("backend.app.main.httpx.Client", lambda *args, **kwargs: _RaisingClient())
+    monkeypatch.setattr("backend.app.main.httpx.AsyncClient", lambda *args, **kwargs: _RaisingClient())
 
     app = create_app(db_path=tmp_path / "app.db")
     client = TestClient(app)
@@ -108,13 +108,13 @@ def test_ai_chat_route_returns_message_without_board_update(
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
     class _RouteClient:
-        def __enter__(self) -> "_RouteClient":
+        async def __aenter__(self) -> "_RouteClient":
             return self
 
-        def __exit__(self, exc_type, exc, tb) -> bool:
+        async def __aexit__(self, exc_type, exc, tb) -> bool:
             return False
 
-        def post(self, *_args, **_kwargs) -> _FakeResponse:
+        async def post(self, *_args, **_kwargs) -> _FakeResponse:
             return _FakeResponse(
                 {
                     "choices": [
@@ -127,7 +127,7 @@ def test_ai_chat_route_returns_message_without_board_update(
                 }
             )
 
-    monkeypatch.setattr("backend.app.main.httpx.Client", lambda *args, **kwargs: _RouteClient())
+    monkeypatch.setattr("backend.app.main.httpx.AsyncClient", lambda *args, **kwargs: _RouteClient())
 
     app = create_app(db_path=tmp_path / "app.db")
     client = TestClient(app)
@@ -159,13 +159,13 @@ def test_ai_chat_route_persists_board_update(
     ai_payload = {"assistant_response": "Renamed backlog.", "board_update": board}
 
     class _RouteClient:
-        def __enter__(self) -> "_RouteClient":
+        async def __aenter__(self) -> "_RouteClient":
             return self
 
-        def __exit__(self, exc_type, exc, tb) -> bool:
+        async def __aexit__(self, exc_type, exc, tb) -> bool:
             return False
 
-        def post(self, *_args, **_kwargs) -> _FakeResponse:
+        async def post(self, *_args, **_kwargs) -> _FakeResponse:
             return _FakeResponse(
                 {
                     "choices": [
@@ -178,7 +178,7 @@ def test_ai_chat_route_persists_board_update(
                 }
             )
 
-    monkeypatch.setattr("backend.app.main.httpx.Client", lambda *args, **kwargs: _RouteClient())
+    monkeypatch.setattr("backend.app.main.httpx.AsyncClient", lambda *args, **kwargs: _RouteClient())
 
     response = client.post(
         "/api/ai/chat",
@@ -202,13 +202,13 @@ def test_ai_chat_route_rejects_invalid_structured_payload(
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
 
     class _RouteClient:
-        def __enter__(self) -> "_RouteClient":
+        async def __aenter__(self) -> "_RouteClient":
             return self
 
-        def __exit__(self, exc_type, exc, tb) -> bool:
+        async def __aexit__(self, exc_type, exc, tb) -> bool:
             return False
 
-        def post(self, *_args, **_kwargs) -> _FakeResponse:
+        async def post(self, *_args, **_kwargs) -> _FakeResponse:
             return _FakeResponse(
                 {
                     "choices": [
@@ -221,7 +221,7 @@ def test_ai_chat_route_rejects_invalid_structured_payload(
                 }
             )
 
-    monkeypatch.setattr("backend.app.main.httpx.Client", lambda *args, **kwargs: _RouteClient())
+    monkeypatch.setattr("backend.app.main.httpx.AsyncClient", lambda *args, **kwargs: _RouteClient())
 
     app = create_app(db_path=tmp_path / "app.db")
     client = TestClient(app)
